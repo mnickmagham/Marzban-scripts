@@ -685,7 +685,6 @@ update_core_command() {
     get_xray_core
     # Change the Marzban core
     xray_executable_path="XRAY_EXECUTABLE_PATH=\"/var/lib/marzban/xray-core/xray\""
-    
     echo "Changing the Marzban core..."
     # Check if the XRAY_EXECUTABLE_PATH string already exists in the .env file
     if ! grep -q "^XRAY_EXECUTABLE_PATH=" "$ENV_FILE"; then
@@ -708,87 +707,46 @@ update_core_command() {
 
 install_marzban() {
     local marzban_version=$1
-    local database_type=$2
-    # Fetch releases
-    FILES_URL_PREFIX="https://raw.githubusercontent.com/Gozargah/Marzban/master"
+    local major_version=$2
+    local database_type=$3
+
+    if [[ "$database_type" == "postgresql" || "$database_type" == "timescaledb" && "$major_version" -eq 0 ]]; then
+        colorized_echo red "Can't install versions under 1 with PostgreSQL or TimeScaleDB Database"
+        exit 1
+    fi
+    
+    FILES_URL_PREFIX="https://raw.githubusercontent.com/Gozargah/Marzban/"
+    COMPOSE_FILES_URL_PREFIX="https://raw.githubusercontent.com/Gozargah/Marzban-scripts/master"
     
     mkdir -p "$DATA_DIR"
     mkdir -p "$APP_DIR"
-    
-    colorized_echo blue "Setting up docker-compose.yml"
-    docker_file_path="$APP_DIR/docker-compose.yml"
-    
-    if [ "$database_type" == "mariadb" ]; then
-        # Generate docker-compose.yml with MariaDB content
-        cat > "$docker_file_path" <<EOF
-services:
-  marzban:
-    image: gozargah/marzban:${marzban_version}
-    restart: always
-    env_file: .env
-    network_mode: host
-    volumes:
-      - /var/lib/marzban:/var/lib/marzban
-      - /var/lib/marzban/logs:/var/lib/marzban-node
-    depends_on:
-      mariadb:
-        condition: service_healthy
 
-  mariadb:
-    image: mariadb:lts
-    env_file: .env
-    network_mode: host
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD}
-      MYSQL_ROOT_HOST: '%'
-      MYSQL_DATABASE: \${MYSQL_DATABASE}
-      MYSQL_USER: \${MYSQL_USER}
-      MYSQL_PASSWORD: \${MYSQL_PASSWORD}
-    command:
-      - --bind-address=127.0.0.1                  # Restricts access to localhost for increased security
-      - --character_set_server=utf8mb4            # Sets UTF-8 character set for full Unicode support
-      - --collation_server=utf8mb4_unicode_ci     # Defines collation for Unicode
-      - --host-cache-size=0                       # Disables host cache to prevent DNS issues
-      - --innodb-open-files=1024                  # Sets the limit for InnoDB open files
-      - --innodb-buffer-pool-size=256M            # Allocates buffer pool size for InnoDB
-      - --binlog_expire_logs_seconds=1209600      # Sets binary log expiration to 14 days (2 weeks)
-      - --innodb-log-file-size=64M                # Sets InnoDB log file size to balance log retention and performance
-      - --innodb-log-files-in-group=2             # Uses two log files to balance recovery and disk I/O
-      - --innodb-doublewrite=0                    # Disables doublewrite buffer (reduces disk I/O; may increase data loss risk)
-      - --general_log=0                           # Disables general query log to reduce disk usage
-      - --slow_query_log=1                        # Enables slow query log for identifying performance issues
-      - --slow_query_log_file=/var/lib/mysql/slow.log # Logs slow queries for troubleshooting
-      - --long_query_time=2                       # Defines slow query threshold as 2 seconds
-    volumes:
-      - /var/lib/marzban/mysql:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      start_period: 10s
-      start_interval: 3s
-      interval: 10s
-      timeout: 5s
-      retries: 3
-EOF
-        echo "----------------------------"
-        colorized_echo red "Using MariaDB as database"
-        echo "----------------------------"
-        colorized_echo green "File generated at $APP_DIR/docker-compose.yml"
+    colorized_echo blue "Fetching .env file"
+    if [ "$major_version" -eq 1 ]; then
+        curl -sL "$FILES_URL_PREFIX/next/.env.example" -o "$APP_DIR/.env"
+    else
+        curl -sL "$FILES_URL_PREFIX/master/.env.example" -o "$APP_DIR/.env"
+    fi
 
-        # Modify .env file
-        colorized_echo blue "Fetching .env file"
-        curl -sL "$FILES_URL_PREFIX/.env.example" -o "$APP_DIR/.env"
+    colorized_echo green "File saved in $APP_DIR/.env"
+
+    if [[ "$database_type" =~ ^(mysql|mariadb|postgresql|timescaledb)$ ]]; then
+
+        case "$database_type" in
+            mysql) db_name="MySQL" ;;
+            mariadb) db_name="MariaDB" ;;
+            timescaledb) db_name="TimeScaleDB" ;;
+            *) db_name="PostgreSQL" ;;
+        esac
+
+        echo "----------------------------"
+        colorized_echo red "Using $db_name as database"
+        echo "----------------------------"
+        colorized_echo blue "Fetching compose file for Marzban+$db_name"
+        curl -sL "$COMPOSE_FILES_URL_PREFIX/marzban-$database_type.yml" -o "$COMPOSE_FILE"
 
         # Comment out the SQLite line
-        sed -i 's~^\(SQLALCHEMY_DATABASE_URL = "sqlite:////var/lib/marzban/db.sqlite3"\)~#\1~' "$APP_DIR/.env"
-
-
-        # Add the MySQL connection string
-        #echo -e '\nSQLALCHEMY_DATABASE_URL = "mysql+pymysql://marzban:password@127.0.0.1:3306/marzban"' >> "$APP_DIR/.env"
-
-        sed -i 's/^# \(XRAY_JSON = .*\)$/\1/' "$APP_DIR/.env"
-        sed -i 's~\(XRAY_JSON = \).*~\1"/var/lib/marzban/xray_config.json"~' "$APP_DIR/.env"
-
+        sed -i 's~^SQLALCHEMY_DATABASE_URL = "sqlite~#&~' "$APP_DIR/.env"
 
         prompt_for_marzban_password
         MYSQL_ROOT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
@@ -796,149 +754,61 @@ EOF
         echo "" >> "$ENV_FILE"
         echo "" >> "$ENV_FILE"
         echo "# Database configuration" >> "$ENV_FILE"
-        echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD" >> "$ENV_FILE"
-        echo "MYSQL_DATABASE=marzban" >> "$ENV_FILE"
-        echo "MYSQL_USER=marzban" >> "$ENV_FILE"
-        echo "MYSQL_PASSWORD=$MYSQL_PASSWORD" >> "$ENV_FILE"
+        echo "MYSQL_ROOT_PASSWORD= $MYSQL_ROOT_PASSWORD" >> "$ENV_FILE"
+        echo "MYSQL_DATABASE= marzban" >> "$ENV_FILE"
+        echo "MYSQL_USER= marzban" >> "$ENV_FILE"
+        echo "MYSQL_PASSWORD= $MYSQL_PASSWORD" >> "$ENV_FILE"
         
-        SQLALCHEMY_DATABASE_URL="mysql+pymysql://marzban:${MYSQL_PASSWORD}@127.0.0.1:3306/marzban"
-        
-        echo "" >> "$ENV_FILE"
-        echo "# SQLAlchemy Database URL" >> "$ENV_FILE"
-        echo "SQLALCHEMY_DATABASE_URL=\"$SQLALCHEMY_DATABASE_URL\"" >> "$ENV_FILE"
-        
-        colorized_echo green "File saved in $APP_DIR/.env"
+        if [ "$major_version" -eq 1 ]; then
+            db_driver_scheme="$( [[ "$database_type" =~ ^(mysql|mariadb)$ ]] && echo 'mysql+asyncmy' || echo 'postgresql+psycopg' )"
+        else
+            db_driver_scheme="mysql+pymysql"
+        fi
 
-    elif [ "$database_type" == "mysql" ]; then
-        # Generate docker-compose.yml with MySQL content
-        cat > "$docker_file_path" <<EOF
-services:
-  marzban:
-    image: gozargah/marzban:${marzban_version}
-    restart: always
-    env_file: .env
-    network_mode: host
-    volumes:
-      - /var/lib/marzban:/var/lib/marzban
-      - /var/lib/marzban/logs:/var/lib/marzban-node
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  mysql:
-    image: mysql:lts
-    env_file: .env
-    network_mode: host
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD}
-      MYSQL_ROOT_HOST: '%'
-      MYSQL_DATABASE: \${MYSQL_DATABASE}
-      MYSQL_USER: \${MYSQL_USER}
-      MYSQL_PASSWORD: \${MYSQL_PASSWORD}
-    command:
-      - --mysqlx=OFF                             # Disables MySQL X Plugin to save resources if X Protocol isn't used
-      - --bind-address=127.0.0.1                  # Restricts access to localhost for increased security
-      - --character_set_server=utf8mb4            # Sets UTF-8 character set for full Unicode support
-      - --collation_server=utf8mb4_unicode_ci     # Defines collation for Unicode
-      - --log-bin=mysql-bin                       # Enables binary logging for point-in-time recovery
-      - --binlog_expire_logs_seconds=1209600      # Sets binary log expiration to 14 days
-      - --host-cache-size=0                       # Disables host cache to prevent DNS issues
-      - --innodb-open-files=1024                  # Sets the limit for InnoDB open files
-      - --innodb-buffer-pool-size=256M            # Allocates buffer pool size for InnoDB
-      - --innodb-log-file-size=64M                # Sets InnoDB log file size to balance log retention and performance
-      - --innodb-log-files-in-group=2             # Uses two log files to balance recovery and disk I/O
-      - --general_log=0                           # Disables general query log for lower disk usage
-      - --slow_query_log=1                        # Enables slow query log for performance analysis
-      - --slow_query_log_file=/var/lib/mysql/slow.log # Logs slow queries for troubleshooting
-      - --long_query_time=2                       # Defines slow query threshold as 2 seconds
-    volumes:
-      - /var/lib/marzban/mysql:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "marzban", "--password=\${MYSQL_PASSWORD}"]
-      start_period: 5s
-      interval: 5s
-      timeout: 5s
-      retries: 55
-      
-EOF
-        echo "----------------------------"
-        colorized_echo red "Using MySQL as database"
-        echo "----------------------------"
-        colorized_echo green "File generated at $APP_DIR/docker-compose.yml"
-
-        # Modify .env file
-        colorized_echo blue "Fetching .env file"
-        curl -sL "$FILES_URL_PREFIX/.env.example" -o "$APP_DIR/.env"
-
-        # Comment out the SQLite line
-        sed -i 's~^\(SQLALCHEMY_DATABASE_URL = "sqlite:////var/lib/marzban/db.sqlite3"\)~#\1~' "$APP_DIR/.env"
-
-
-        # Add the MySQL connection string
-        #echo -e '\nSQLALCHEMY_DATABASE_URL = "mysql+pymysql://marzban:password@127.0.0.1:3306/marzban"' >> "$APP_DIR/.env"
-
-        sed -i 's/^# \(XRAY_JSON = .*\)$/\1/' "$APP_DIR/.env"
-        sed -i 's~\(XRAY_JSON = \).*~\1"/var/lib/marzban/xray_config.json"~' "$APP_DIR/.env"
-
-
-        prompt_for_marzban_password
-        MYSQL_ROOT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
-        
-        echo "" >> "$ENV_FILE"
-        echo "" >> "$ENV_FILE"
-        echo "# Database configuration" >> "$ENV_FILE"
-        echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD" >> "$ENV_FILE"
-        echo "MYSQL_DATABASE=marzban" >> "$ENV_FILE"
-        echo "MYSQL_USER=marzban" >> "$ENV_FILE"
-        echo "MYSQL_PASSWORD=$MYSQL_PASSWORD" >> "$ENV_FILE"
-        
-        SQLALCHEMY_DATABASE_URL="mysql+pymysql://marzban:${MYSQL_PASSWORD}@127.0.0.1:3306/marzban"
+        SQLALCHEMY_DATABASE_URL="${db_driver_scheme}://marzban:${MYSQL_PASSWORD}@127.0.0.1:3306/marzban"
         
         echo "" >> "$ENV_FILE"
         echo "# SQLAlchemy Database URL" >> "$ENV_FILE"
-        echo "SQLALCHEMY_DATABASE_URL=\"$SQLALCHEMY_DATABASE_URL\"" >> "$ENV_FILE"
-        
-        colorized_echo green "File saved in $APP_DIR/.env"
+        echo "SQLALCHEMY_DATABASE_URL= \"$SQLALCHEMY_DATABASE_URL\"" >> "$ENV_FILE"
 
     else
         echo "----------------------------"
         colorized_echo red "Using SQLite as database"
         echo "----------------------------"
         colorized_echo blue "Fetching compose file"
-        curl -sL "$FILES_URL_PREFIX/docker-compose.yml" -o "$docker_file_path"
+        curl -sL "$FILES_URL_PREFIX/master/docker-compose.yml" -o "$COMPOSE_FILE"
 
-        # Install requested version
-        if [ "$marzban_version" == "latest" ]; then
-            yq -i '.services.marzban.image = "gozargah/marzban:latest"' "$docker_file_path"
-        else
-            yq -i ".services.marzban.image = \"gozargah/marzban:${marzban_version}\"" "$docker_file_path"
-        fi
-        echo "Installing $marzban_version version"
-        colorized_echo green "File saved in $APP_DIR/docker-compose.yml"
-
-
-        colorized_echo blue "Fetching .env file"
-        curl -sL "$FILES_URL_PREFIX/.env.example" -o "$APP_DIR/.env"
-
-        sed -i 's/^# \(XRAY_JSON = .*\)$/\1/' "$APP_DIR/.env"
         sed -i 's/^# \(SQLALCHEMY_DATABASE_URL = .*\)$/\1/' "$APP_DIR/.env"
-        sed -i 's~\(XRAY_JSON = \).*~\1"/var/lib/marzban/xray_config.json"~' "$APP_DIR/.env"
-        sed -i 's~\(SQLALCHEMY_DATABASE_URL = \).*~\1"sqlite:////var/lib/marzban/db.sqlite3"~' "$APP_DIR/.env"
 
+        if [ "$major_version" -eq 1 ]; then
+            db_driver_scheme="sqlite+aiosqlite"
+        else
+            db_driver_scheme="sqlite"
+        fi
 
+        sed -i "s~\(SQLALCHEMY_DATABASE_URL = \).*~\1\"${db_driver_scheme}:////${DATA_DIR}/db.sqlite3\"~" "$APP_DIR/.env"
 
-
-
-        
-        colorized_echo green "File saved in $APP_DIR/.env"
     fi
+
+    if [ "$major_version" -eq 0 ]; then
+        # Fetch xray config file and set it's path in .env file.
+        colorized_echo blue "Fetching xray config file"
+        curl -sL "$FILES_URL_PREFIX/master/xray_config.json" -o "$DATA_DIR/xray_config.json"
+        colorized_echo green "File saved in $DATA_DIR/xray_config.json"
     
-    colorized_echo blue "Fetching xray config file"
-    curl -sL "$FILES_URL_PREFIX/xray_config.json" -o "$DATA_DIR/xray_config.json"
-    colorized_echo green "File saved in $DATA_DIR/xray_config.json"
-    
-    colorized_echo green "Marzban's files downloaded successfully"
+        sed -i 's/^# \(XRAY_JSON = .*\)$/\1/' "$APP_DIR/.env"
+        sed -i 's~\(XRAY_JSON = \).*~\1"/var/lib/marzban/xray_config.json"~' "$APP_DIR/.env"
+	fi
+
+    # Install requested version
+    if [ "$marzban_version" == "latest" ]; then
+        yq -i '.services.marzban.image = "gozargah/marzban:latest"' "$COMPOSE_FILE"
+    else
+        yq -i ".services.marzban.image = \"gozargah/marzban:${marzban_version}\"" "$COMPOSE_FILE"
+    fi
+    colorized_echo green "File saved in $APP_DIR/docker-compose.yml"
+
+    colorized_echo green "Marzban installed successfully"
 }
 
 up_marzban() {
@@ -1008,9 +878,10 @@ install_command() {
     check_running_as_root
 
     # Default values
-    database_type="sqlite"
     marzban_version="latest"
+    major_version=1
     marzban_version_set="false"
+    database_type="sqlite"
 
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -1018,20 +889,33 @@ install_command() {
         case $key in
             --database)
                 database_type="$2"
+                if [[ ! $database_type =~ ^(mysql|mariadb|postgresql|timescaledb)$ ]]; then
+                    colorized_echo red "Unsupported database type: $database_type"
+                    exit 1
+                fi
                 shift 2
             ;;
             --dev)
                 if [[ "$marzban_version_set" == "true" ]]; then
-                    colorized_echo red "Error: Cannot use --dev and --version options simultaneously."
+                    colorized_echo red "Error: Cannot use --pre-release , --dev and --version options simultaneously."
                     exit 1
                 fi
                 marzban_version="dev"
                 marzban_version_set="true"
                 shift
             ;;
+            --pre-release)
+                if [[ "$marzban_version_set" == "true" ]]; then
+                    colorized_echo red "Error: Cannot use --pre-release , --dev and --version options simultaneously."
+                    exit 1
+                fi
+                marzban_version="pre-release"
+                marzban_version_set="true"
+                shift
+            ;;
             --version)
                 if [[ "$marzban_version_set" == "true" ]]; then
-                    colorized_echo red "Error: Cannot use --dev and --version options simultaneously."
+                    colorized_echo red "Error: Cannot use --pre-release , --dev and --version options simultaneously."
                     exit 1
                 fi
                 marzban_version="$2"
@@ -1073,24 +957,43 @@ install_command() {
     check_version_exists() {
         local version=$1
         repo_url="https://api.github.com/repos/Gozargah/Marzban/releases"
-        if [ "$version" == "latest" ] || [ "$version" == "dev" ]; then
+
+        if [ "$version" == "latest" ]; then
+			latest_tag=$(curl -s ${repo_url}/latest | jq -r '.tag_name')
+            major_version=$(echo "$latest_tag" | sed 's/^v//' | sed 's/[^0-9]*\([0-9]*\)\..*/\1/')
+			return 0
+        fi
+
+        if [ "$version" == "dev" ]; then
+            major_version=0
             return 0
         fi
-        
-        # Fetch the release data from GitHub API
-        response=$(curl -s "$repo_url")
-        
-        # Check if the response contains the version tag
-        if echo "$response" | jq -e ".[] | select(.tag_name == \"${version}\")" > /dev/null; then
+
+		if [ "$version" == "pre-release" ]; then
+			# Fetch the release data from GitHub API and find the last pre released version tag name
+			pre_release_tag_name=$(curl -s "$repo_url" | jq -r '[.[] | select(.prerelease == true)][0].tag_name')
+            if [ "$pre_release_tag_name" != "null" ]; then
+                marzban_version=$pre_release_tag_name
+                return 0
+            else
+                return 1
+            fi
+        fi
+
+        # Check if the repo contains the version tag
+        if curl -s -o /dev/null -w "%{http_code}" "${repo_url}/tags/${version}" | grep -q "^200$"; then
+            major_version=$(echo "$version" | sed 's/^v//' | sed 's/[^0-9]*\([0-9]*\)\..*/\1/')
             return 0
         else
             return 1
         fi
     }
+
+    semver_regex='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
     # Check if the version is valid and exists
-    if [[ "$marzban_version" == "latest" || "$marzban_version" == "dev" || "$marzban_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [[ "$marzban_version" == "latest" || "$marzban_version" == "dev" || "$marzban_version" == "pre-release" || "$marzban_version" =~ $semver_regex ]]; then
         if check_version_exists "$marzban_version"; then
-            install_marzban "$marzban_version" "$database_type"
+            install_marzban "$marzban_version" "$major_version" "$database_type" 
             echo "Installing $marzban_version version"
         else
             echo "Version $marzban_version does not exist. Please enter a valid version (e.g. v0.5.2)"
