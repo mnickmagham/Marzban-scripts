@@ -44,7 +44,7 @@ COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 SSL_CERT_FILE="$DATA_DIR/certs/cert.pem"
 SSL_KEY_FILE="$DATA_DIR/certs/key.pem"
 LAST_XRAY_CORES=5
-FETCH_REPO="Gozargah/Marzban-scripts"
+FETCH_REPO="ImMohammad20000/Marzban-scripts"
 SCRIPT_URL="https://github.com/$FETCH_REPO/raw/master/gozargah-node.sh"
 
 colorized_echo() {
@@ -245,7 +245,7 @@ install_gozargah_node() {
     local gozargah_node_version=$1
 
     FILES_URL_PREFIX="https://raw.githubusercontent.com/M03ED/gozargah-node/master"
-    COMPOSE_FILES_URL_PREFIX="https://raw.githubusercontent.com/Gozargah/Marzban-scripts/master"
+    COMPOSE_FILES_URL_PREFIX="https://raw.githubusercontent.com/ImMohammad20000/Marzban-scripts/master"
 
     mkdir -p "$DATA_DIR"
     mkdir -p "$DATA_DIR/certs"
