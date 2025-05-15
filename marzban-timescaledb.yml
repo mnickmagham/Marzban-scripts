@@ -15,8 +15,8 @@ services:
     restart: always
     network_mode: host
     environment:
-      - POSTGRES_DB: ${MYSQL_DATABASE}
-      - POSTGRES_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_DB: ${MYSQL_DATABASE}
+      POSTGRES_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - /var/lib/postgresql/marzban:/var/lib/postgresql/data
     healthcheck:
