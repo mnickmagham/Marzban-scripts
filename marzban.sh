@@ -759,13 +759,19 @@ install_marzban() {
         echo "MYSQL_USER= marzban" >> "$ENV_FILE"
         echo "MYSQL_PASSWORD= $MYSQL_PASSWORD" >> "$ENV_FILE"
         
+        if [[ "$database_type" == "postgres" || "$database_type" == "timescaledb" ]]; then
+            db_user="postgres"; db_port="5432"
+        else
+            db_user="marzban"; db_port="3306"
+        fi
+
         if [ "$major_version" -eq 1 ]; then
             db_driver_scheme="$( [[ "$database_type" =~ ^(mysql|mariadb)$ ]] && echo 'mysql+asyncmy' || echo 'postgresql+asyncpg' )"
         else
             db_driver_scheme="mysql+pymysql"
         fi
 
-        SQLALCHEMY_DATABASE_URL="${db_driver_scheme}://marzban:${MYSQL_PASSWORD}@127.0.0.1:3306/marzban"
+        SQLALCHEMY_DATABASE_URL="${db_driver_scheme}://${db_user}:${MYSQL_PASSWORD}@127.0.0.1:${db_port}/marzban"
         
         echo "" >> "$ENV_FILE"
         echo "# SQLAlchemy Database URL" >> "$ENV_FILE"
