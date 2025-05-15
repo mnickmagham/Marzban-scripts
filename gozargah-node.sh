@@ -513,10 +513,10 @@ install_command() {
     fi
     install_gozargah_node_script
     up_gozargah_node
-    follow_gozargah_node_logs
+    show_gozargah_node_logs
 
     colorized_echo blue "================================"
-    colorized_echo magenta " gozargah node is set up with the following IP: $NODE_IP and Port: $SERVICE_PORT."
+    colorized_echo magenta "gozargah node is set up with the following IP: $NODE_IP and Port: $SERVICE_PORT."
     colorized_echo magenta "Please use the following Certificate in Marzban Panel (it's located in ${APP_DIR}/certs):"
     cat "$SSL_CERT_FILE"
     colorized_echo blue "================================"
