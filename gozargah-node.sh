@@ -41,8 +41,8 @@ fi
 
 DATA_DIR="/var/lib/$APP_NAME"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
-SSL_CERT_FILE="$DATA_DIR/certs/cert.pem"
-SSL_KEY_FILE="$DATA_DIR/certs/key.pem"
+SSL_CERT_FILE="$DATA_DIR/certs/ssl_cert.pem"
+SSL_KEY_FILE="$DATA_DIR/certs/ssl_key.pem"
 LAST_XRAY_CORES=5
 FETCH_REPO="ImMohammad20000/Marzban-scripts"
 SCRIPT_URL="https://github.com/$FETCH_REPO/raw/master/gozargah-node.sh"
