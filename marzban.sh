@@ -710,7 +710,7 @@ install_marzban() {
     local major_version=$2
     local database_type=$3
 
-    if [[ "$database_type" == "postgresql" || "$database_type" == "timescaledb" && "$major_version" -eq 0 ]]; then
+    if [[ ( "$database_type" == "postgresql" || "$database_type" == "timescaledb" ) && "$major_version" -eq 0 ]]; then
         colorized_echo red "Can't install versions under 1 with PostgreSQL or TimeScaleDB Database"
         exit 1
     fi
