@@ -211,7 +211,7 @@ gen_self_signed_cert(){
     openssl req -x509 -newkey rsa:4096 -keyout "$SSL_KEY_FILE" \
 	-out "$SSL_CERT_FILE" -days 36500 -nodes \
 	-subj "/CN=$NODE_IP" \
-	-addext "subjectAltName = IP:$NODE_IP" > /dev/null
+	-addext "subjectAltName = IP:$NODE_IP"
 }
 
 read_and_save_file(){
