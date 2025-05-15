@@ -759,7 +759,7 @@ install_marzban() {
         echo "MYSQL_USER= marzban" >> "$ENV_FILE"
         echo "MYSQL_PASSWORD= $MYSQL_PASSWORD" >> "$ENV_FILE"
         
-        if [[ "$database_type" == "postgres" || "$database_type" == "timescaledb" ]]; then
+        if [[ "$database_type" == "postgresql" || "$database_type" == "timescaledb" ]]; then
             db_user="postgres"; db_port="5432"
         else
             db_user="marzban"; db_port="3306"
