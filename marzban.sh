@@ -760,7 +760,7 @@ install_marzban() {
         echo "MYSQL_PASSWORD= $MYSQL_PASSWORD" >> "$ENV_FILE"
         
         if [ "$major_version" -eq 1 ]; then
-            db_driver_scheme="$( [[ "$database_type" =~ ^(mysql|mariadb)$ ]] && echo 'mysql+asyncmy' || echo 'postgresql+psycopg' )"
+            db_driver_scheme="$( [[ "$database_type" =~ ^(mysql|mariadb)$ ]] && echo 'mysql+asyncmy' || echo 'postgresql+asyncpg' )"
         else
             db_driver_scheme="mysql+pymysql"
         fi
