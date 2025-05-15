@@ -1,0 +1,26 @@
+services:
+  marzban:
+    image: gozargah/marzban:latest
+    restart: always
+    env_file: .env
+    network_mode: host
+    volumes:
+      - /var/lib/marzban:/var/lib/marzban
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  postgresql:
+    image: postgres:latest
+    restart: always
+    network_mode: host
+    environment:
+      - POSTGRES_DB: ${MYSQL_DATABASE}
+      - POSTGRES_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - /var/lib/postgresql/marzban:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
