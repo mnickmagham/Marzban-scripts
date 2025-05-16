@@ -231,7 +231,7 @@ read_and_save_file(){
     while IFS= read -r line; do
         [[ -z $line ]] && break
 
-        if ! $first_line_read && [[ "$allow_file_input" == 1 && -f $line ]]; then
+        if [[ "$first_line_read" -eq 0 && "$allow_file_input" -eq 1 && -f "$line" ]]; then
             first_line_read=1
             cp "$line" "$output_file"
             break
