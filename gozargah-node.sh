@@ -464,6 +464,9 @@ install_command() {
     if ! command -v docker >/dev/null 2>&1; then
         install_docker
     fi
+    if ! command -v yq >/dev/null 2>&1; then
+        install_yq
+    fi
     detect_compose
     # Function to check if a version exists in the GitHub releases
     check_version_exists() {
