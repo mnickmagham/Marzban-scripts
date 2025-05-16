@@ -13,7 +13,6 @@ services:
   postgresql:
     image: postgres:latest
     restart: always
-    user: postgres
     environment:
       POSTGRES_DB: ${MYSQL_DATABASE}
       POSTGRES_PASSWORD: ${MYSQL_PASSWORD}
