@@ -280,11 +280,11 @@ install_gozargah_node() {
         colorized_echo blue "self-signed certificate successfully generated"
     fi
 
-    read -p "Enter your API Key (must be a valid UUID (v4 or v6), leave blank to auto-generate): " -r API_KEY
+    read -p "Enter your API Key (must be a valid UUID (any version), leave blank to auto-generate): " -r API_KEY
     if [[ -z "$API_KEY" ]]; then
-        # Generate a valid UUID
+        # Generate a valid UUIDv4
         API_KEY=$(uuidgen)
-        echo "API KEY generated successfully"
+        colorized_echo green "No API Key provided. A random UUID version 4 has been generated"
     fi
 
     read -p "GRPC is recommended by default. Do you want to use REST protocol instead? (Y/n): " -r use_rest
