@@ -208,10 +208,25 @@ is_port_occupied() {
 }
 
 gen_self_signed_cert(){
+    local san_entries=("DNS:localhost" "IP:127.0.0.1" "IP:$NODE_IP")
+
+    echo "Current SAN entries: ${san_entries[*]}"
+    read -rp "Enter additional SAN entries (comma separated), or leave empty to keep current: " extra_san
+
+    if [[ -n "$extra_san" ]]; then
+        IFS=',' read -ra user_entries <<< "$extra_san"
+        san_entries+=("${user_entries[@]}")
+    fi
+
+    # Join SAN entries into a comma-separated string and remove duplicates
+    local san_string
+    san_string=$(printf '%s\n' "${san_entries[@]}" | sort -u | paste -sd, -)
+
     openssl req -x509 -newkey rsa:4096 -keyout "$SSL_KEY_FILE" \
 	-out "$SSL_CERT_FILE" -days 36500 -nodes \
 	-subj "/CN=$NODE_IP" \
-	-addext "subjectAltName = IP:$NODE_IP" > /dev/null 2>&1
+	-addext "subjectAltName = $san_string" > /dev/null 2>&1
+
 }
 
 read_and_save_file(){
