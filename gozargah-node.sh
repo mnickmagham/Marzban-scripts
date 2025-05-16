@@ -275,7 +275,7 @@ install_gozargah_node() {
     read -p "GRPC is recommended by default. Do you want to use REST protocol instead? (Y/n): " -r use_rest
     
     # Default to "Y" if the user just presses ENTER
-    if [[ -z "$use_rest" || "$use_rest" =~ ^[Yy]$ ]]; then
+    if [[ "$use_rest" =~ ^[Yy]$ ]]; then
         USE_REST=1
     else
         USE_REST=0
