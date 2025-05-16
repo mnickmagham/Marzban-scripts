@@ -231,7 +231,7 @@ read_and_save_file(){
     while IFS= read -r line; do
         [[ -z $line ]] && break
 
-        if ! $first_line_read && [[ "$allow_file_input" == 1 && -f $line ]]; then
+        if [[ "$first_line_read" -eq 0 && "$allow_file_input" -eq 1 && -f "$line" ]]; then
             first_line_read=1
             cp "$line" "$output_file"
             break
@@ -275,7 +275,7 @@ install_gozargah_node() {
     read -p "GRPC is recommended by default. Do you want to use REST protocol instead? (Y/n): " -r use_rest
     
     # Default to "Y" if the user just presses ENTER
-    if [[ -z "$use_rest" || "$use_rest" =~ ^[Yy]$ ]]; then
+    if [[ "$use_rest" =~ ^[Yy]$ ]]; then
         USE_REST=1
     else
         USE_REST=0
@@ -464,6 +464,9 @@ install_command() {
     if ! command -v docker >/dev/null 2>&1; then
         install_docker
     fi
+    if ! command -v yq >/dev/null 2>&1; then
+        install_yq
+    fi
     detect_compose
     # Function to check if a version exists in the GitHub releases
     check_version_exists() {
@@ -516,8 +519,8 @@ install_command() {
     show_gozargah_node_logs
 
     colorized_echo blue "================================"
-    colorized_echo magenta "gozargah node is set up with the following IP: $NODE_IP and Port: $SERVICE_PORT."
-    colorized_echo magenta "Please use the following Certificate in Marzban Panel (it's located in ${APP_DIR}/certs):"
+    colorized_echo magenta "Gozargah node is set up with the following IP: $NODE_IP and Port: $SERVICE_PORT."
+    colorized_echo magenta "Please use the following Certificate in Marzban Panel (it's located in ${DATA_DIR}/certs):"
     cat "$SSL_CERT_FILE"
     colorized_echo blue "================================"
     colorized_echo magenta "Next, use the API Key (UUID v4) in Marzban Panel: "
