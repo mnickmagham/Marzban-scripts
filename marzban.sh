@@ -748,21 +748,25 @@ install_marzban() {
         # Comment out the SQLite line
         sed -i 's~^SQLALCHEMY_DATABASE_URL = "sqlite~#&~' "$APP_DIR/.env"
 
-        prompt_for_marzban_password
-        MYSQL_ROOT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
-        
-        echo "" >> "$ENV_FILE"
+        DB_NAME="marzban"
+        DB_USER="marzban"
+        prompt_for_db_password
+
+        if [[ "$database_type" == "postgresql" || "$database_type" == "timescaledb" ]]; then
+            DB_PORT="5432"
+        else
+            DB_PORT="3306"
+        fi
+
         echo "" >> "$ENV_FILE"
         echo "# Database configuration" >> "$ENV_FILE"
-        echo "MYSQL_ROOT_PASSWORD= $MYSQL_ROOT_PASSWORD" >> "$ENV_FILE"
-        echo "MYSQL_DATABASE= marzban" >> "$ENV_FILE"
-        echo "MYSQL_USER= marzban" >> "$ENV_FILE"
-        echo "MYSQL_PASSWORD= $MYSQL_PASSWORD" >> "$ENV_FILE"
-        
-        if [[ "$database_type" == "postgresql" || "$database_type" == "timescaledb" ]]; then
-            db_user="postgres"; db_port="5432"
-        else
-            db_user="marzban"; db_port="3306"
+        echo "DB_NAME= ${DB_NAME}" >> "$ENV_FILE"
+        echo "DB_USER= ${DB_USER}" >> "$ENV_FILE"
+        echo "DB_PASSWORD= ${DB_PASSWORD}" >> "$ENV_FILE"
+
+        if [[ "$database_type" == "mysql" || "$database_type" == "mariadb" ]]; then
+            MYSQL_ROOT_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
+            echo "MYSQL_ROOT_PASSWORD= $MYSQL_ROOT_PASSWORD" >> "$ENV_FILE"
         fi
 
         if [ "$major_version" -eq 1 ]; then
@@ -771,7 +775,7 @@ install_marzban() {
             db_driver_scheme="mysql+pymysql"
         fi
 
-        SQLALCHEMY_DATABASE_URL="${db_driver_scheme}://${db_user}:${MYSQL_PASSWORD}@127.0.0.1:${db_port}/marzban"
+        SQLALCHEMY_DATABASE_URL="${db_driver_scheme}://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}"
         
         echo "" >> "$ENV_FILE"
         echo "# SQLAlchemy Database URL" >> "$ENV_FILE"
@@ -862,22 +866,20 @@ status_command() {
 }
 
 
-prompt_for_marzban_password() {
+prompt_for_db_password() {
     colorized_echo cyan "This password will be used to access the database and should be strong."
     colorized_echo cyan "If you do not enter a custom password, a secure 20-character password will be generated automatically."
 
-    # Запрашиваем ввод пароля
-    read -p "Enter the password for the marzban user (or press Enter to generate a secure default password): " MYSQL_PASSWORD
+    # Prompt for password input
+    read -p "Enter the password for the database (or press Enter to generate a secure default password): " DB_PASSWORD
 
-    # Генерация 20-значного пароля, если пользователь оставил поле пустым
-    if [ -z "$MYSQL_PASSWORD" ]; then
-        MYSQL_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
+    # Generate a 20-character password if the user leaves the input empty
+    if [ -z "$DB_PASSWORD" ]; then
+        DB_PASSWORD=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
         colorized_echo green "A secure password has been generated automatically."
     fi
     colorized_echo green "This password will be recorded in the .env file for future use."
 
-    # Пауза 3 секунды перед продолжением
-    sleep 3
 }
 
 install_command() {
