@@ -22,7 +22,7 @@ services:
     volumes:
       - /var/lib/postgresql/marzban:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${DB_NAME} -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -q -d ${DB_NAME} -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
