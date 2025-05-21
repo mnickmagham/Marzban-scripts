@@ -17,9 +17,9 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_ROOT_HOST: '%'
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     command:
       - --mysqlx=OFF                                   # Disables MySQL X Plugin to save resources if X Protocol isn't used
       - --bind-address=127.0.0.1                       # Restricts access to localhost for increased security
@@ -39,7 +39,7 @@ services:
     volumes:
       - /var/lib/mysql/marzban:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "marzban", "--password=${MYSQL_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "${DB_USER}", "--password=${DB_PASSWORD}"]
       start_period: 5s
       interval: 5s
       timeout: 5s
