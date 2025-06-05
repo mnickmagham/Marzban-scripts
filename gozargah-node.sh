@@ -12,13 +12,9 @@ else
     fi
 fi
 
-# Fetch IP address from ipinfo.io API
-NODE_IP=$(curl -s -4 ifconfig.io)
-
-# If the IPv4 retrieval is empty, attempt to retrieve the IPv6 address
-if [ -z "$NODE_IP" ]; then
-    NODE_IP=$(curl -s -6 ifconfig.io)
-fi
+# Fetch IP address from ifconfig.io API
+NODE_IP_V4=$(curl -s -4 ifconfig.io)
+NODE_IP_V6=$(curl -s -6 ifconfig.io)
 
 if [[ "$1" == "install" || "$1" == "install-script" ]] && [ -z "$APP_NAME" ]; then
     APP_NAME="gozargah-node"
@@ -50,29 +46,29 @@ SCRIPT_URL="https://github.com/$FETCH_REPO/raw/master/gozargah-node.sh"
 colorized_echo() {
     local color=$1
     local text=$2
-    local style=${3:-0}  # Default style is normal
+    local style=${3:-0} # Default style is normal
 
     case $color in
-        "red")
-            printf "\e[${style};91m${text}\e[0m\n"
+    "red")
+        printf "\e[${style};91m${text}\e[0m\n"
         ;;
-        "green")
-            printf "\e[${style};92m${text}\e[0m\n"
+    "green")
+        printf "\e[${style};92m${text}\e[0m\n"
         ;;
-        "yellow")
-            printf "\e[${style};93m${text}\e[0m\n"
+    "yellow")
+        printf "\e[${style};93m${text}\e[0m\n"
         ;;
-        "blue")
-            printf "\e[${style};94m${text}\e[0m\n"
+    "blue")
+        printf "\e[${style};94m${text}\e[0m\n"
         ;;
-        "magenta")
-            printf "\e[${style};95m${text}\e[0m\n"
+    "magenta")
+        printf "\e[${style};95m${text}\e[0m\n"
         ;;
-        "cyan")
-            printf "\e[${style};96m${text}\e[0m\n"
+    "cyan")
+        printf "\e[${style};96m${text}\e[0m\n"
         ;;
-        *)
-            echo "${text}"
+    *)
+        echo "${text}"
         ;;
     esac
 }
@@ -88,11 +84,11 @@ detect_os() {
     # Detect the operating system
     if [ -f /etc/lsb-release ]; then
         OS=$(lsb_release -si)
-        elif [ -f /etc/os-release ]; then
+    elif [ -f /etc/os-release ]; then
         OS=$(awk -F= '/^NAME/{print $2}' /etc/os-release | tr -d '"')
-        elif [ -f /etc/redhat-release ]; then
+    elif [ -f /etc/redhat-release ]; then
         OS=$(cat /etc/redhat-release | awk '{print $1}')
-        elif [ -f /etc/arch-release ]; then
+    elif [ -f /etc/arch-release ]; then
         OS="Arch"
     else
         colorized_echo red "Unsupported operating system"
@@ -124,12 +120,11 @@ detect_and_update_package_manager() {
     fi
 }
 
-
 detect_compose() {
     # Check if docker compose command exists
     if docker compose >/dev/null 2>&1; then
         COMPOSE='docker compose'
-        elif docker-compose >/dev/null 2>&1; then
+    elif docker-compose >/dev/null 2>&1; then
         COMPOSE='docker-compose'
     else
         colorized_echo red "docker compose not found"
@@ -137,7 +132,7 @@ detect_compose() {
     fi
 }
 
-install_package () {
+install_package() {
     if [ -z "$PKG_MANAGER" ]; then
         detect_and_update_package_manager
     fi
@@ -172,9 +167,9 @@ install_gozargah_node_script() {
     colorized_echo blue "Installing gozargah-node script"
     TARGET_PATH="/usr/local/bin/$APP_NAME"
     curl -sSL $SCRIPT_URL -o $TARGET_PATH
-    
+
     sed -i "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME\"/" $TARGET_PATH
-    
+
     chmod 755 $TARGET_PATH
     colorized_echo green "gozargah-node script installed successfully at $TARGET_PATH"
 }
@@ -207,14 +202,24 @@ is_port_occupied() {
     fi
 }
 
-gen_self_signed_cert(){
-    local san_entries=("DNS:localhost" "IP:127.0.0.1" "IP:$NODE_IP")
+gen_self_signed_cert() {
+    local san_entries=("DNS:localhost" "IP:127.0.0.1")
+
+    # Add IPv4 if it exists
+    if [ -n "$NODE_IP_V4" ]; then
+        san_entries+=("IP:$NODE_IP_V4")
+    fi
+
+    # Add IPv6 if it exists
+    if [ -n "$NODE_IP_V6" ]; then
+        san_entries+=("IP:$NODE_IP_V6")
+    fi
 
     echo "Current SAN entries: ${san_entries[*]}"
     read -rp "Enter additional SAN entries (comma separated), or leave empty to keep current: " extra_san
 
     if [[ -n "$extra_san" ]]; then
-        IFS=',' read -ra user_entries <<< "$extra_san"
+        IFS=',' read -ra user_entries <<<"$extra_san"
         san_entries+=("${user_entries[@]}")
     fi
 
@@ -223,13 +228,13 @@ gen_self_signed_cert(){
     san_string=$(printf '%s\n' "${san_entries[@]}" | sort -u | paste -sd, -)
 
     openssl req -x509 -newkey rsa:4096 -keyout "$SSL_KEY_FILE" \
-	-out "$SSL_CERT_FILE" -days 36500 -nodes \
-	-subj "/CN=$NODE_IP" \
-	-addext "subjectAltName = $san_string" > /dev/null 2>&1
+        -out "$SSL_CERT_FILE" -days 36500 -nodes \
+        -subj "/CN=$NODE_IP" \
+        -addext "subjectAltName = $san_string" >/dev/null 2>&1
 
 }
 
-read_and_save_file(){
+read_and_save_file() {
     local prompt_message=$1
     local output_file=$2
     local allow_file_input=$3
@@ -252,7 +257,7 @@ read_and_save_file(){
             break
         fi
 
-        echo "$line" >> "$output_file"
+        echo "$line" >>"$output_file"
     done
 }
 
@@ -288,16 +293,16 @@ install_gozargah_node() {
     fi
 
     read -p "GRPC is recommended by default. Do you want to use REST protocol instead? (Y/n): " -r use_rest
-    
+
     # Default to "Y" if the user just presses ENTER
     if [[ "$use_rest" =~ ^[Yy]$ ]]; then
         USE_REST=1
     else
         USE_REST=0
     fi
-    
+
     get_occupied_ports
-    
+
     # Prompt user to enter the service port, ensuring the selected port is not already in use
     while true; do
         read -p "Enter the SERVICE_PORT (default 62050): " -r SERVICE_PORT
@@ -332,7 +337,7 @@ install_gozargah_node() {
     fi
 
     colorized_echo green ".env file modified successfully"
-    
+
     # Modifying compose file
     service_name="gozargah-node"
 
@@ -347,7 +352,6 @@ install_gozargah_node() {
 
     colorized_echo green "compose file modified successfully"
 }
-
 
 uninstall_gozargah_node_script() {
     if [ -f "/usr/local/bin/$APP_NAME" ]; then
@@ -365,7 +369,7 @@ uninstall_gozargah_node() {
 
 uninstall_gozargah_node_docker_images() {
     images=$(docker images | grep gozargah-node | awk '{print $3}')
-    
+
     if [ -n "$images" ]; then
         colorized_echo yellow "Removing Docker images of gozargah-node"
         for image in $images; do
@@ -435,27 +439,27 @@ install_command() {
     while [[ $# -gt 0 ]]; do
         key="$1"
         case $key in
-            -v|--version)
-                if [[ "$gozargah_node_version_set" == "true" ]]; then
-                    colorized_echo red "Error: Cannot use --pre-release and --version options simultaneously."
-                    exit 1
-                fi
-                gozargah_node_version="$2"
-                gozargah_node_version_set="true"
-                shift 2
-            ;;
-            --pre-release)
-                if [[ "$gozargah_node_version_set" == "true" ]]; then
-                    colorized_echo red "Error: Cannot use --pre-release and --version options simultaneously."
-                    exit 1
-                fi
-                gozargah_node_version="pre-release"
-                gozargah_node_version_set="true"
-                shift
-            ;;
-            *)
-                echo "Unknown option: $1"
+        -v | --version)
+            if [[ "$gozargah_node_version_set" == "true" ]]; then
+                colorized_echo red "Error: Cannot use --pre-release and --version options simultaneously."
                 exit 1
+            fi
+            gozargah_node_version="$2"
+            gozargah_node_version_set="true"
+            shift 2
+            ;;
+        --pre-release)
+            if [[ "$gozargah_node_version_set" == "true" ]]; then
+                colorized_echo red "Error: Cannot use --pre-release and --version options simultaneously."
+                exit 1
+            fi
+            gozargah_node_version="pre-release"
+            gozargah_node_version_set="true"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
             ;;
         esac
     done
@@ -486,21 +490,21 @@ install_command() {
     # Function to check if a version exists in the GitHub releases
     check_version_exists() {
         local version=$1
-		repo_url="https://api.github.com/repos/M03ED/gozargah-node/releases"
+        repo_url="https://api.github.com/repos/M03ED/gozargah-node/releases"
 
         if [ "$version" == "latest" ]; then
-			latest_tag=$(curl -s ${repo_url}/latest | jq -r '.tag_name')
-            
-			# Check if there is any stable release of gozargah node v1
-			if [ "$latest_tag" == "null" ]; then
+            latest_tag=$(curl -s ${repo_url}/latest | jq -r '.tag_name')
+
+            # Check if there is any stable release of gozargah node v1
+            if [ "$latest_tag" == "null" ]; then
                 return 1
-			fi
-			return 0
+            fi
+            return 0
         fi
-        
-		if [ "$version" == "pre-release" ]; then
-			# Fetch the release data from GitHub API and find the last pre released version tag name
-			pre_release_tag_name=$(curl -s "$repo_url" | jq -r '[.[] | select(.prerelease == true)][0].tag_name')
+
+        if [ "$version" == "pre-release" ]; then
+            # Fetch the release data from GitHub API and find the last pre released version tag name
+            pre_release_tag_name=$(curl -s "$repo_url" | jq -r '[.[] | select(.prerelease == true)][0].tag_name')
             if [ "$pre_release_tag_name" != "null" ]; then
                 gozargah_node_version=$pre_release_tag_name
                 return 0
@@ -549,13 +553,13 @@ uninstall_command() {
         colorized_echo red "gozargah-node not installed!"
         exit 1
     fi
-    
+
     read -p "Do you really want to uninstall gozargah-node? (y/n) "
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         colorized_echo red "Aborted"
         exit 1
     fi
-    
+
     detect_compose
     if is_gozargah_node_up; then
         down_gozargah_node
@@ -563,7 +567,7 @@ uninstall_command() {
     uninstall_gozargah_node_script
     uninstall_gozargah_node
     uninstall_gozargah_node_docker_images
-    
+
     read -p "Do you want to remove gozargah-node data files too ($DATA_DIR)? (y/n) "
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         colorized_echo green "gozargah-node uninstalled successfully"
@@ -581,39 +585,39 @@ up_command() {
         echo "  -h, --help        display this help message"
         echo "  -n, --no-logs     do not follow logs after starting"
     }
-    
+
     local no_logs=false
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            -n|--no-logs)
-                no_logs=true
+        -n | --no-logs)
+            no_logs=true
             ;;
-            -h|--help)
-                help
-                exit 0
+        -h | --help)
+            help
+            exit 0
             ;;
-            *)
-                echo "Error: Invalid option: $1" >&2
-                help
-                exit 0
+        *)
+            echo "Error: Invalid option: $1" >&2
+            help
+            exit 0
             ;;
         esac
         shift
     done
-    
+
     # Check if gozargah-node is installed
     if ! is_gozargah_node_installed; then
         colorized_echo red "gozargah-node's not installed!"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     if is_gozargah_node_up; then
         colorized_echo red "gozargah-node's already up"
         exit 1
     fi
-    
+
     up_gozargah_node
     if [ "$no_logs" = false ]; then
         follow_gozargah_node_logs
@@ -626,14 +630,14 @@ down_command() {
         colorized_echo red "gozargah-node not installed!"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     if ! is_gozargah_node_up; then
         colorized_echo red "gozargah-node already down"
         exit 1
     fi
-    
+
     down_gozargah_node
 }
 
@@ -645,37 +649,37 @@ restart_command() {
         echo "  -h, --help        display this help message"
         echo "  -n, --no-logs     do not follow logs after starting"
     }
-    
+
     local no_logs=false
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            -n|--no-logs)
-                no_logs=true
+        -n | --no-logs)
+            no_logs=true
             ;;
-            -h|--help)
-                help
-                exit 0
+        -h | --help)
+            help
+            exit 0
             ;;
-            *)
-                echo "Error: Invalid option: $1" >&2
-                help
-                exit 0
+        *)
+            echo "Error: Invalid option: $1" >&2
+            help
+            exit 0
             ;;
         esac
         shift
     done
-    
+
     # Check if gozargah-node is installed
     if ! is_gozargah_node_installed; then
         colorized_echo red "gozargah-node not installed!"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     down_gozargah_node
     up_gozargah_node
-    
+
 }
 
 status_command() {
@@ -685,18 +689,18 @@ status_command() {
         colorized_echo red "Not Installed"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     if ! is_gozargah_node_up; then
         echo -n "Status: "
         colorized_echo blue "Down"
         exit 1
     fi
-    
+
     echo -n "Status: "
     colorized_echo green "Up"
-    
+
     json=$($COMPOSE -f $COMPOSE_FILE ps -a --format=json)
     services=$(echo "$json" | jq -r 'if type == "array" then .[] else . end | .Service')
     states=$(echo "$json" | jq -r 'if type == "array" then .[] else . end | .State')
@@ -721,39 +725,39 @@ logs_command() {
         echo "  -h, --help        display this help message"
         echo "  -n, --no-follow   do not show follow logs"
     }
-    
+
     local no_follow=false
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            -n|--no-follow)
-                no_follow=true
+        -n | --no-follow)
+            no_follow=true
             ;;
-            -h|--help)
-                help
-                exit 0
+        -h | --help)
+            help
+            exit 0
             ;;
-            *)
-                echo "Error: Invalid option: $1" >&2
-                help
-                exit 0
+        *)
+            echo "Error: Invalid option: $1" >&2
+            help
+            exit 0
             ;;
         esac
         shift
     done
-    
+
     # Check if gozargah-node is installed
     if ! is_gozargah_node_installed; then
         colorized_echo red "gozargah-node's not installed!"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     if ! is_gozargah_node_up; then
         colorized_echo red "gozargah-node is not up."
         exit 1
     fi
-    
+
     if [ "$no_follow" = true ]; then
         show_gozargah_node_logs
     else
@@ -768,71 +772,71 @@ update_command() {
         colorized_echo red "gozargah-node not installed!"
         exit 1
     fi
-    
+
     detect_compose
-    
+
     update_gozargah_node_script
     colorized_echo blue "Pulling latest version"
     update_gozargah_node
-    
+
     colorized_echo blue "Restarting gozargah-node services"
     down_gozargah_node
     up_gozargah_node
-    
+
     colorized_echo blue "gozargah-node updated successfully"
 }
 
 identify_the_operating_system_and_architecture() {
     if [[ "$(uname)" == 'Linux' ]]; then
         case "$(uname -m)" in
-            'i386' | 'i686')
-                ARCH='32'
+        'i386' | 'i686')
+            ARCH='32'
             ;;
-            'amd64' | 'x86_64')
-                ARCH='64'
+        'amd64' | 'x86_64')
+            ARCH='64'
             ;;
-            'armv5tel')
-                ARCH='arm32-v5'
+        'armv5tel')
+            ARCH='arm32-v5'
             ;;
-            'armv6l')
-                ARCH='arm32-v6'
-                grep Features /proc/cpuinfo | grep -qw 'vfp' || ARCH='arm32-v5'
+        'armv6l')
+            ARCH='arm32-v6'
+            grep Features /proc/cpuinfo | grep -qw 'vfp' || ARCH='arm32-v5'
             ;;
-            'armv7' | 'armv7l')
-                ARCH='arm32-v7a'
-                grep Features /proc/cpuinfo | grep -qw 'vfp' || ARCH='arm32-v5'
+        'armv7' | 'armv7l')
+            ARCH='arm32-v7a'
+            grep Features /proc/cpuinfo | grep -qw 'vfp' || ARCH='arm32-v5'
             ;;
-            'armv8' | 'aarch64')
-                ARCH='arm64-v8a'
+        'armv8' | 'aarch64')
+            ARCH='arm64-v8a'
             ;;
-            'mips')
-                ARCH='mips32'
+        'mips')
+            ARCH='mips32'
             ;;
-            'mipsle')
-                ARCH='mips32le'
+        'mipsle')
+            ARCH='mips32le'
             ;;
-            'mips64')
-                ARCH='mips64'
-                lscpu | grep -q "Little Endian" && ARCH='mips64le'
+        'mips64')
+            ARCH='mips64'
+            lscpu | grep -q "Little Endian" && ARCH='mips64le'
             ;;
-            'mips64le')
-                ARCH='mips64le'
+        'mips64le')
+            ARCH='mips64le'
             ;;
-            'ppc64')
-                ARCH='ppc64'
+        'ppc64')
+            ARCH='ppc64'
             ;;
-            'ppc64le')
-                ARCH='ppc64le'
+        'ppc64le')
+            ARCH='ppc64le'
             ;;
-            'riscv64')
-                ARCH='riscv64'
+        'riscv64')
+            ARCH='riscv64'
             ;;
-            's390x')
-                ARCH='s390x'
+        's390x')
+            ARCH='s390x'
             ;;
-            *)
-                echo "error: The architecture is not supported."
-                exit 1
+        *)
+            echo "error: The architecture is not supported."
+            exit 1
             ;;
         esac
     else
@@ -845,11 +849,10 @@ identify_the_operating_system_and_architecture() {
 get_xray_core() {
     identify_the_operating_system_and_architecture
     clear
-    
-    
+
     validate_version() {
         local version="$1"
-        
+
         local response=$(curl -s "https://api.github.com/repos/XTLS/Xray-core/releases/tags/$version")
         if echo "$response" | grep -q '"message": "Not Found"'; then
             echo "invalid"
@@ -857,18 +860,17 @@ get_xray_core() {
             echo "valid"
         fi
     }
-    
-    
+
     print_menu() {
         clear
         echo -e "\033[1;32m==============================\033[0m"
         echo -e "\033[1;32m      Xray-core Installer     \033[0m"
         echo -e "\033[1;32m==============================\033[0m"
-       current_version=$(get_current_xray_core_version)
+        current_version=$(get_current_xray_core_version)
         echo -e "\033[1;33m>>>> Current Xray-core version: \033[1;1m$current_version\033[0m"
         echo -e "\033[1;32m==============================\033[0m"
         echo -e "\033[1;33mAvailable Xray-core versions:\033[0m"
-        for ((i=0; i<${#versions[@]}; i++)); do
+        for ((i = 0; i < ${#versions[@]}; i++)); do
             echo -e "\033[1;34m$((i + 1)):\033[0m ${versions[i]}"
         done
         echo -e "\033[1;32m==============================\033[0m"
@@ -876,24 +878,22 @@ get_xray_core() {
         echo -e "\033[1;31mQ:\033[0m Quit"
         echo -e "\033[1;32m==============================\033[0m"
     }
-    
-    
+
     latest_releases=$(curl -s "https://api.github.com/repos/XTLS/Xray-core/releases?per_page=$LAST_XRAY_CORES")
-    
-    
+
     versions=($(echo "$latest_releases" | grep -oP '"tag_name": "\K(.*?)(?=")'))
-    
+
     while true; do
         print_menu
         read -p "Choose a version to install (1-${#versions[@]}), or press M to enter manually, Q to quit: " choice
-        
+
         if [[ "$choice" =~ ^[1-9][0-9]*$ ]] && [ "$choice" -le "${#versions[@]}" ]; then
-            
+
             choice=$((choice - 1))
-            
+
             selected_version=${versions[choice]}
             break
-            elif [ "$choice" == "M" ] || [ "$choice" == "m" ]; then
+        elif [ "$choice" == "M" ] || [ "$choice" == "m" ]; then
             while true; do
                 read -p "Enter the version manually (e.g., v1.2.3): " custom_version
                 if [ "$(validate_version "$custom_version")" == "valid" ]; then
@@ -903,7 +903,7 @@ get_xray_core() {
                     echo -e "\033[1;31mInvalid version or version does not exist. Please try again.\033[0m"
                 fi
             done
-            elif [ "$choice" == "Q" ] || [ "$choice" == "q" ]; then
+        elif [ "$choice" == "Q" ] || [ "$choice" == "q" ]; then
             echo -e "\033[1;31mExiting.\033[0m"
             exit 0
         else
@@ -911,10 +911,9 @@ get_xray_core() {
             sleep 2
         fi
     done
-    
+
     echo -e "\033[1;32mSelected version $selected_version for installation.\033[0m"
-    
-    
+
     if ! dpkg -s unzip >/dev/null 2>&1; then
         echo -e "\033[1;33mInstalling required packages...\033[0m"
         detect_os
@@ -923,15 +922,14 @@ get_xray_core() {
 
     mkdir -p $DATA_DIR/xray-core
     cd $DATA_DIR/xray-core
-    
+
     xray_filename="Xray-linux-$ARCH.zip"
     xray_download_url="https://github.com/XTLS/Xray-core/releases/download/${selected_version}/${xray_filename}"
-    
+
     echo -e "\033[1;33mDownloading Xray-core version ${selected_version} in the background...\033[0m"
     wget "${xray_download_url}" -q &
     wait
-    
-    
+
     echo -e "\033[1;33mExtracting Xray-core in the background...\033[0m"
     unzip -o "${xray_filename}" >/dev/null 2>&1 &
     wait
@@ -975,22 +973,22 @@ install_yq() {
     local yq_binary=""
 
     case "$ARCH" in
-        '64' | 'x86_64')
-            yq_binary="yq_linux_amd64"
-            ;;
-        'arm32-v7a' | 'arm32-v6' | 'arm32-v5' | 'armv7l')
-            yq_binary="yq_linux_arm"
-            ;;
-        'arm64-v8a' | 'aarch64')
-            yq_binary="yq_linux_arm64"
-            ;;
-        '32' | 'i386' | 'i686')
-            yq_binary="yq_linux_386"
-            ;;
-        *)
-            colorized_echo red "Unsupported architecture: $ARCH"
-            exit 1
-            ;;
+    '64' | 'x86_64')
+        yq_binary="yq_linux_amd64"
+        ;;
+    'arm32-v7a' | 'arm32-v6' | 'arm32-v5' | 'armv7l')
+        yq_binary="yq_linux_arm"
+        ;;
+    'arm64-v8a' | 'aarch64')
+        yq_binary="yq_linux_arm64"
+        ;;
+    '32' | 'i386' | 'i686')
+        yq_binary="yq_linux_386"
+        ;;
+    *)
+        colorized_echo red "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
     esac
 
     local yq_url="${base_url}/${yq_binary}"
@@ -1003,7 +1001,6 @@ install_yq() {
             exit 1
         }
     fi
-
 
     if command -v curl &>/dev/null; then
         if curl -L "$yq_url" -o /usr/local/bin/yq; then
@@ -1023,11 +1020,9 @@ install_yq() {
         fi
     fi
 
-
     if ! echo "$PATH" | grep -q "/usr/local/bin"; then
         export PATH="/usr/local/bin:$PATH"
     fi
-
 
     hash -r
 
@@ -1043,14 +1038,12 @@ install_yq() {
     fi
 }
 
-
-
 update_core_command() {
     check_running_as_root
     get_xray_core
-    
+
     sed -i "s|^# *XRAY_EXECUTABLE_PATH *=.*|XRAY_EXECUTABLE_PATH= ${DATA_DIR}/xray-core/xray|" "$APP_DIR/.env"
-    grep -q '^XRAY_EXECUTABLE_PATH=' "$APP_DIR/.env" || echo "XRAY_EXECUTABLE_PATH= ${DATA_DIR}/xray-core/xray" >> "$APP_DIR/.env"
+    grep -q '^XRAY_EXECUTABLE_PATH=' "$APP_DIR/.env" || echo "XRAY_EXECUTABLE_PATH= ${DATA_DIR}/xray-core/xray" >>"$APP_DIR/.env"
 
     # Restart gozargah-node
     colorized_echo red "Restarting gozargah-node..."
@@ -1058,12 +1051,11 @@ update_core_command() {
     colorized_echo blue "Installation of XRAY-CORE version $selected_version completed."
 }
 
-
 check_editor() {
     if [ -z "$EDITOR" ]; then
         if command -v nano >/dev/null 2>&1; then
             EDITOR="nano"
-            elif command -v vi >/dev/null 2>&1; then
+        elif command -v vi >/dev/null 2>&1; then
             EDITOR="vi"
         else
             detect_os
@@ -1072,7 +1064,6 @@ check_editor() {
         fi
     fi
 }
-
 
 edit_command() {
     detect_os
@@ -1084,7 +1075,6 @@ edit_command() {
         exit 1
     fi
 }
-
 
 usage() {
     colorized_echo blue "================================"
@@ -1107,11 +1097,11 @@ usage() {
     colorized_echo yellow "  uninstall-script  $(tput sgr0)– Uninstall gozargah-node script"
     colorized_echo yellow "  edit            $(tput sgr0)– Edit docker-compose.yml (via nano or vi)"
     colorized_echo yellow "  core-update     $(tput sgr0)– Update/Change Xray core"
-    
+
     echo
     colorized_echo cyan "Node Information:"
     colorized_echo magenta "  Node IP: $NODE_IP"
-    
+
     SERVICE_PORT=$(grep '^SERVICE_PORT[[:space:]]*=' "$APP_DIR/.env" | sed 's/^SERVICE_PORT[[:space:]]*=[[:space:]]*//')
     colorized_echo magenta "  Service port: $SERVICE_PORT"
 
@@ -1122,7 +1112,7 @@ usage() {
 
     echo
     current_version=$(get_current_xray_core_version)
-    colorized_echo cyan "Current Xray-core version: " 1  # 1 for bold
+    colorized_echo cyan "Current Xray-core version: " 1 # 1 for bold
     colorized_echo magenta "$current_version" 1
     echo
     colorized_echo blue "================================="
@@ -1130,43 +1120,47 @@ usage() {
 }
 
 case "$1" in
-    install)
-        shift; install_command "$@"
+install)
+    shift
+    install_command "$@"
     ;;
-    update)
-        update_command
+update)
+    update_command
     ;;
-    uninstall)
-        uninstall_command
+uninstall)
+    uninstall_command
     ;;
-    up)
-        shift; up_command "$@"
+up)
+    shift
+    up_command "$@"
     ;;
-    down)
-        down_command
+down)
+    down_command
     ;;
-    restart)
-        shift; restart_command "$@"
+restart)
+    shift
+    restart_command "$@"
     ;;
-    status)
-        status_command
+status)
+    status_command
     ;;
-    logs)
-        shift; logs_command "$@"
+logs)
+    shift
+    logs_command "$@"
     ;;
-    core-update)
-        update_core_command
+core-update)
+    update_core_command
     ;;
-    install-script)
-        install_gozargah_node_script
+install-script)
+    install_gozargah_node_script
     ;;
-    uninstall-script)
-        uninstall_gozargah_node_script
+uninstall-script)
+    uninstall_gozargah_node_script
     ;;
-    edit)
-        edit_command
+edit)
+    edit_command
     ;;
-    *)
-        usage
+*)
+    usage
     ;;
 esac
