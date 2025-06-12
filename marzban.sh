@@ -1431,7 +1431,7 @@ _marzban_completions()
 }
 EOF
     echo "complete -F _marzban_completions marzban.sh"
-    echo "complete -F _marzban_completions \"$APP_NAME\""
+    echo "complete -F _marzban_completions $APP_NAME"
 }
 
 install_completion() {

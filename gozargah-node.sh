@@ -1149,7 +1149,7 @@ _gozargah_node_completions()
 }
 EOF
     echo "complete -F _gozargah_node_completions gozargah-node.sh"
-    echo "complete -F _gozargah_node_completions \"$APP_NAME\""
+    echo "complete -F _gozargah_node_completions $APP_NAME"
 }
 
 install_completion() {
