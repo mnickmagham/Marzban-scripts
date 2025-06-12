@@ -13,8 +13,8 @@ else
 fi
 
 # Fetch IP address from ifconfig.io API
-NODE_IP_V4=$(curl -s -4 ifconfig.io)
-NODE_IP_V6=$(curl -s -6 ifconfig.io)
+NODE_IP_V4=$(curl -s -4 --fail --max-time 5 ifconfig.io 2>/dev/null || echo "")
+NODE_IP_V6=$(curl -s -6 --fail --max-time 5 ifconfig.io 2>/dev/null || echo "")
 
 if [[ "$1" == "install" || "$1" == "install-script" ]] && [ -z "$APP_NAME" ]; then
     APP_NAME="gozargah-node"
