@@ -6,14 +6,14 @@ AUTO_CONFIRM=false
 ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -y|--yes)
-            AUTO_CONFIRM=true
-            shift
-            ;;
-        *)
-            ARGS+=("$1")
-            shift
-            ;;
+    -y | --yes)
+        AUTO_CONFIRM=true
+        shift
+        ;;
+    *)
+        ARGS+=("$1")
+        shift
+        ;;
     esac
 done
 set -- "${ARGS[@]}"
@@ -1148,14 +1148,15 @@ _gozargah_node_completions()
     return 0
 }
 EOF
-    echo "complete -F _gozargah_node_completions gozargah-node.sh \"$APP_NAME\""
+    echo "complete -F _gozargah_node_completions gozargah-node.sh"
+    echo "complete -F _gozargah_node_completions \"$APP_NAME\""
 }
 
 install_completion() {
     local completion_dir="/etc/bash_completion.d"
     local completion_file="$completion_dir/$APP_NAME"
     mkdir -p "$completion_dir"
-    generate_completion > "$completion_file"
+    generate_completion >"$completion_file"
     colorized_echo green "Bash completion installed to $completion_file"
 }
 
