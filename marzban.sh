@@ -1013,7 +1013,6 @@ install_command() {
         echo "Invalid version format. Please enter a valid version (e.g. v0.5.2)"
         exit 1
     fi
-    install_theme
     install_completion
     up_marzban
     follow_marzban_logs
@@ -1146,7 +1145,6 @@ uninstall_command() {
         down_marzban
     fi
     uninstall_completion
-    uninstall_theme
     uninstall_marzban_script
     uninstall_marzban
     uninstall_marzban_docker_images
@@ -1466,28 +1464,6 @@ uninstall_completion() {
     if [ -f "$completion_file" ]; then
         rm "$completion_file"
         colorized_echo yellow "Bash completion removed from $completion_file"
-    fi
-}
-
-install_theme() {
-    local theme_url="https://github.com/Gozargah/Marzban-Themes/archive/refs/heads/main.tar.gz"
-    mkdir -p "$THEMES_DIR"
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    if command -v curl >/dev/null 2>&1; then
-        curl -sL "$theme_url" -o "$tmp_dir/theme.tar.gz"
-    else
-        wget -qO "$tmp_dir/theme.tar.gz" "$theme_url"
-    fi
-    tar -xzf "$tmp_dir/theme.tar.gz" -C "$tmp_dir"
-    cp -r "$tmp_dir"/* "$THEMES_DIR"/
-    rm -rf "$tmp_dir"
-}
-
-uninstall_theme() {
-    if [ -d "$THEMES_DIR" ]; then
-        rm -rf "$THEMES_DIR"
-        colorized_echo yellow "Removed directory: $THEMES_DIR"
     fi
 }
 
