@@ -1359,6 +1359,7 @@ update_command() {
     detect_compose
 
     update_marzban_script
+    uninstall_completion
     install_completion
     colorized_echo blue "Pulling latest version"
     update_marzban
