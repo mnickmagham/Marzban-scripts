@@ -54,6 +54,7 @@ fi
 
 DATA_DIR="/var/lib/$APP_NAME"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
+ENV_FILE="$APP_DIR/.env"
 SSL_CERT_FILE="$DATA_DIR/certs/ssl_cert.pem"
 SSL_KEY_FILE="$DATA_DIR/certs/ssl_key.pem"
 LAST_XRAY_CORES=5
@@ -1141,6 +1142,17 @@ edit_command() {
     fi
 }
 
+edit_env_command() {
+    detect_os
+    check_editor
+    if [ -f "$ENV_FILE" ]; then
+        $EDITOR "$ENV_FILE"
+    else
+        colorized_echo red "Environment file not found at $ENV_FILE"
+        exit 1
+    fi
+}
+
 generate_completion() {
     cat <<'EOF'
 _gozargah_node_completions()
@@ -1148,7 +1160,7 @@ _gozargah_node_completions()
     local cur cmds
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    cmds="up down restart status logs install update uninstall install-script uninstall-script core-update edit completion"
+    cmds="up down restart status logs install update uninstall install-script uninstall-script core-update edit edit-env completion"
     COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
     return 0
 }
@@ -1197,6 +1209,7 @@ usage() {
     colorized_echo yellow "  install-script  $(tput sgr0)– Install gozargah-node script"
     colorized_echo yellow "  uninstall-script  $(tput sgr0)– Uninstall gozargah-node script"
     colorized_echo yellow "  edit            $(tput sgr0)– Edit docker-compose.yml (via nano or vi)"
+    colorized_echo yellow "  edit-env        $(tput sgr0)– Edit .env file (via nano or vi)"
     colorized_echo yellow "  core-update     $(tput sgr0)– Update/Change Xray core"
 
     echo
@@ -1260,6 +1273,9 @@ uninstall-script)
     ;;
 edit)
     edit_command
+    ;;
+edit-env)
+    edit_env_command
     ;;
 completion)
     generate_completion
