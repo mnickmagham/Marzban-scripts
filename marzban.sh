@@ -970,14 +970,27 @@ install_command() {
         fi
 
         if [ "$version" == "pre-release" ]; then
-            # Fetch the release data from GitHub API and find the last pre released version tag name
-            pre_release_tag_name=$(curl -s "$repo_url" | jq -r '[.[] | select(.prerelease == true)][0].tag_name')
-            if [ "$pre_release_tag_name" != "null" ]; then
-                marzban_version=$pre_release_tag_name
-                return 0
+            local latest_stable_tag=$(curl -s "$repo_url/latest" | jq -r '.tag_name')
+            local latest_pre_release_tag=$(curl -s "$repo_url" | jq -r '[.[] | select(.prerelease == true)][0].tag_name')
+
+            if [ "$latest_stable_tag" == "null" ] && [ "$latest_pre_release_tag" == "null" ]; then
+                return 1 # No releases found at all
+            elif [ "$latest_stable_tag" == "null" ]; then
+                marzban_version=$latest_pre_release_tag
+            elif [ "$latest_pre_release_tag" == "null" ]; then
+                marzban_version=$latest_stable_tag
             else
-                return 1
+                # Compare versions using sort -V
+                local chosen_version=$(printf "%s\n" "$latest_stable_tag" "$latest_pre_release_tag" | sort -V | tail -n 1)
+                marzban_version=$chosen_version
             fi
+            # Determine major_version for the chosen version
+            if [[ "$marzban_version" =~ ^v1 ]]; then
+                major_version=1
+            else
+                major_version=0
+            fi
+            return 0
         fi
 
         # Check if the repo contains the version tag
