@@ -6,4 +6,4 @@ services:
     network_mode: host
     env_file: .env
     volumes:
-      - /var/lib/gozargah-node:/var/lib/gozargah-node
+      - /var/lib/gozargah-node:latest/var/lib/gozargah-node
