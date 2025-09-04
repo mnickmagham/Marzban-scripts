@@ -287,7 +287,7 @@ install_gozargah_node() {
     local gozargah_node_version=$1
 
     FILES_URL_PREFIX="https://raw.githubusercontent.com/M03ED/gozargah-node/master"
-    COMPOSE_FILES_URL_PREFIX="https://raw.githubusercontent.com/ImMohammad20000/Marzban-scripts/master"
+    COMPOSE_FILES_URL_PREFIX="https://raw.githubusercontent.com/mnickmagham/Marzban-scripts/master"
 
     mkdir -p "$DATA_DIR"
     mkdir -p "$DATA_DIR/certs"
